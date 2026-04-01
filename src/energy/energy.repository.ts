@@ -38,15 +38,21 @@ export class EnergyRepository extends Repository<EnergyRecord> {
     super(EnergyRecord, dataSource.createEntityManager());
   }
 
+  private static readonly UPSERT_CHUNK_SIZE = 1000;
+
   async upsertRecords(records: Partial<EnergyRecord>[]) {
     if (records.length === 0) return;
 
-    await this.createQueryBuilder()
-      .insert()
-      .into(EnergyRecord)
-      .values(records)
-      .orUpdate(['respondentName', 'typeDescription', 'value', 'unit', 'updatedAt'], ['period', 'respondent', 'type'])
-      .execute();
+    for (let i = 0; i < records.length; i += EnergyRepository.UPSERT_CHUNK_SIZE) {
+      const chunk = records.slice(i, i + EnergyRepository.UPSERT_CHUNK_SIZE);
+
+      await this.createQueryBuilder()
+        .insert()
+        .into(EnergyRecord)
+        .values(chunk)
+        .orUpdate(['respondentName', 'typeDescription', 'value', 'unit', 'updatedAt'], ['period', 'respondent', 'type'])
+        .execute();
+    }
   }
 
   private applyFilters(query: SelectQueryBuilder<EnergyRecord>, filters: ReportFilters) {

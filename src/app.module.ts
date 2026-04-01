@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -15,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
   imports: [
     AppConfigModule,
     DatabaseModule,
+    ScheduleModule.forRoot(), // Inicializa o scheduler uma única vez
     SyncModule,
     ReportsModule,
     // LoggerModule.forRoot({

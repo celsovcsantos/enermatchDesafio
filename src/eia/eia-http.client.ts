@@ -7,20 +7,31 @@ import { Env } from '../config/env.schema';
 import { EiaIntegrationException } from '../common/exceptions/app.exception';
 
 export interface EiaResponse {
+  warnings?: Array<{
+    warning: string;
+    description: string;
+  }>;
   response: {
-    total: number;
-    count: number;
-    offset: number;
+    total: string;
+    dateFormat: string;
+    frequency: string;
     data: Array<{
       period: string;
       respondent: string;
-      respondentName: string;
+      'respondent-name': string;
       type: string;
-      typeDescription: string;
-      value: number;
-      unit: string;
+      'type-name': string;
+      value: string;
+      'value-units': string;
     }>;
+    description?: string;
   };
+  request?: {
+    command: string;
+    params: Record<string, unknown>;
+  };
+  apiVersion?: string;
+  ExcelAddInVersion?: string;
 }
 
 @Injectable()
@@ -52,7 +63,7 @@ export class EiaHttpClient {
             start: params.start,
             end: params.end,
             offset: params.offset || 0,
-            length: params.length || 5000,
+            length: params.length || 100,
           },
         }),
       );

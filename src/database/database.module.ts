@@ -15,7 +15,9 @@ import { Env } from '../config/env.schema';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         autoLoadEntities: true,
-        synchronize: false, // Usar migrations em produção
+        // ATENÇÃO: synchronize pode apagar dados! Apenas em desenvolvimento.
+        // Em produção, usar migrations.
+        synchronize: configService.get<string>('NODE_ENV') === 'development',
         migrations: [__dirname + '/migrations/*.{ts,js}'],
         migrationsRun: false,
         logging: configService.get<string>('NODE_ENV') === 'development',

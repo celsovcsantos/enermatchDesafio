@@ -3,15 +3,16 @@ import { EnergyService } from './energy.service';
 import { EiaHttpClient } from '../eia/eia-http.client';
 import { EnergyRepository } from './energy.repository';
 import { SyncException } from '../common/exceptions/app.exception';
+import { EnergyRecord } from './energy.entity';
 
 interface EiaDataRecord {
   period: string;
   respondent: string;
-  respondentName: string;
+  'respondent-name': string;
   type: string;
-  typeDescription: string;
-  value: number;
-  unit: string;
+  'type-name': string;
+  value: string;
+  'value-units': string;
 }
 
 interface MockEiaData {
@@ -19,6 +20,8 @@ interface MockEiaData {
     data: EiaDataRecord[] | undefined;
   };
 }
+
+type UpsertRecordsMock = jest.Mock<Promise<void>, [Partial<EnergyRecord>[]]>;
 
 describe('EnergyService', () => {
   let service: EnergyService;
@@ -61,25 +64,35 @@ describe('EnergyService', () => {
             {
               period: '2024-01-01T00',
               respondent: 'PJM',
-              respondentName: 'PJM Interconnection',
+              'respondent-name': 'PJM Interconnection',
               type: 'D',
-              typeDescription: 'Demand',
-              value: 1000,
-              unit: 'megawatthours',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
             },
           ],
         },
       };
 
       (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
-      (energyRepository.upsertRecords as jest.Mock).mockResolvedValue(undefined);
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockResolvedValue(undefined);
 
       const result = await service.syncData({});
 
       expect(result.count).toBe(1);
       expect(result.message).toBe('Sincronização concluída com sucesso');
       expect(eiaHttpClient.getRegionData).toHaveBeenCalledWith({});
-      expect(energyRepository.upsertRecords).toHaveBeenCalledWith(mockEiaData.response.data);
+      expect(energyRepository.upsertRecords).toHaveBeenCalledTimes(1);
+
+      const calledRecords = (energyRepository.upsertRecords as UpsertRecordsMock).mock.calls[0]?.[0];
+      expect(calledRecords).toHaveLength(1);
+      expect(calledRecords?.[0].period).toBe('2024-01-01T00');
+      expect(calledRecords?.[0].respondent).toBe('PJM');
+      expect(calledRecords?.[0].respondentName).toBe('PJM Interconnection');
+      expect(calledRecords?.[0].type).toBe('D');
+      expect(calledRecords?.[0].typeDescription).toBe('Demand');
+      expect(calledRecords?.[0].value).toBe(1000);
+      expect(calledRecords?.[0].unit).toBe('megawatthours');
     });
 
     it('deve sincronizar múltiplos registros', async () => {
@@ -89,36 +102,36 @@ describe('EnergyService', () => {
             {
               period: '2024-01-01T00',
               respondent: 'PJM',
-              respondentName: 'PJM Interconnection',
+              'respondent-name': 'PJM Interconnection',
               type: 'D',
-              typeDescription: 'Demand',
-              value: 1000,
-              unit: 'megawatthours',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
             },
             {
               period: '2024-01-01T01',
               respondent: 'PJM',
-              respondentName: 'PJM Interconnection',
+              'respondent-name': 'PJM Interconnection',
               type: 'D',
-              typeDescription: 'Demand',
-              value: 1100,
-              unit: 'megawatthours',
+              'type-name': 'Demand',
+              value: '1100',
+              'value-units': 'megawatthours',
             },
             {
               period: '2024-01-01T02',
               respondent: 'MISO',
-              respondentName: 'MISO',
+              'respondent-name': 'MISO',
               type: 'D',
-              typeDescription: 'Demand',
-              value: 900,
-              unit: 'megawatthours',
+              'type-name': 'Demand',
+              value: '900',
+              'value-units': 'megawatthours',
             },
           ],
         },
       };
 
       (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
-      (energyRepository.upsertRecords as jest.Mock).mockResolvedValue(undefined);
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockResolvedValue(undefined);
 
       const result = await service.syncData({});
 
@@ -186,18 +199,18 @@ describe('EnergyService', () => {
             {
               period: '2024-01-01T00',
               respondent: 'PJM',
-              respondentName: 'PJM Interconnection',
+              'respondent-name': 'PJM Interconnection',
               type: 'D',
-              typeDescription: 'Demand',
-              value: 1000,
-              unit: 'megawatthours',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
             },
           ],
         },
       };
 
       (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
-      (energyRepository.upsertRecords as jest.Mock).mockRejectedValue(new Error('Database error'));
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockRejectedValue(new Error('Database error'));
 
       await expect(service.syncData({})).rejects.toThrow(SyncException);
     });
@@ -207,6 +220,106 @@ describe('EnergyService', () => {
 
       await expect(service.syncData({})).rejects.toThrow(SyncException);
       await expect(service.syncData({})).rejects.toThrow('Falha ao sincronizar dados: Unknown error');
+    });
+
+    it('deve usar respondent como fallback para respondentName quando ausente', async () => {
+      const mockEiaData: MockEiaData = {
+        response: {
+          data: [
+            {
+              period: '2024-01-01T00',
+              respondent: 'PJM',
+              'respondent-name': '', // Ausente ou vazio
+              type: 'D',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
+            },
+          ],
+        },
+      };
+
+      (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockResolvedValue(undefined);
+
+      await service.syncData({});
+
+      const calledRecords = (energyRepository.upsertRecords as UpsertRecordsMock).mock.calls[0]?.[0];
+      expect(calledRecords?.[0]?.respondentName).toBe('PJM'); // Fallback para respondent
+    });
+
+    it('deve usar respondent como fallback para respondentName quando undefined', async () => {
+      const mockEiaData: MockEiaData = {
+        response: {
+          data: [
+            {
+              period: '2024-01-01T00',
+              respondent: 'MISO',
+              'respondent-name': '' as unknown as string, // undefined ou vazio
+              type: 'D',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
+            },
+          ],
+        },
+      };
+
+      (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockResolvedValue(undefined);
+
+      await service.syncData({});
+
+      const calledRecords = (energyRepository.upsertRecords as UpsertRecordsMock).mock.calls[0]?.[0];
+      expect(calledRecords?.[0]?.respondentName).toBe('MISO'); // Fallback para respondent
+    });
+
+    it('deve ignorar registros com campos obrigatórios ausentes', async () => {
+      const mockEiaData: MockEiaData = {
+        response: {
+          data: [
+            {
+              period: '2024-01-01T00',
+              respondent: 'PJM',
+              'respondent-name': 'PJM Interconnection',
+              type: 'D',
+              'type-name': 'Demand',
+              value: '1000',
+              'value-units': 'megawatthours',
+            },
+            {
+              period: '' as unknown as string, // period ausente
+              respondent: 'MISO',
+              'respondent-name': 'MISO',
+              type: 'D',
+              'type-name': 'Demand',
+              value: '900',
+              'value-units': 'megawatthours',
+            },
+            {
+              period: '2024-01-01T02',
+              respondent: '', // respondent vazio
+              'respondent-name': 'MISO',
+              type: 'D',
+              'type-name': 'Demand',
+              value: '800',
+              'value-units': 'megawatthours',
+            },
+          ],
+        },
+      };
+
+      (eiaHttpClient.getRegionData as jest.Mock).mockResolvedValue(mockEiaData);
+      (energyRepository.upsertRecords as UpsertRecordsMock).mockResolvedValue(undefined);
+
+      const result = await service.syncData({});
+
+      // Apenas 1 registro válido deve ser processado
+      expect(result.count).toBe(1);
+
+      const calledRecords = (energyRepository.upsertRecords as UpsertRecordsMock).mock.calls[0]?.[0];
+      expect(calledRecords).toHaveLength(1);
+      expect(calledRecords?.[0]?.respondent).toBe('PJM');
     });
   });
 });

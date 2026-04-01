@@ -14,7 +14,7 @@ export const envSchema = z.object({
   // EIA API
   EIA_API_KEY: z.string(),
   EIA_BASE_URL: z.string().url().default('https://api.eia.gov/v2'),
-  EIA_TIMEOUT_MS: z.coerce.number().default(10000),
+  EIA_TIMEOUT_MS: z.coerce.number().default(30000),
 
   // Security
   STATIC_JWT_SECRET: z.string(),

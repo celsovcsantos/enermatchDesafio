@@ -34,21 +34,23 @@ describe('SyncController (e2e)', () => {
   });
 
   it('/energy/sync (POST) - deve retornar 201 ou erro da EIA com token válido', () => {
-    // Mock do serviço seria ideal aqui para evitar chamada real à API EIA
-    // Mas para fins de exemplo de estrutura e2e:
+    // Este teste pode demorar mais pois faz chamada real à API EIA
+    // Timeout aumentado para 30 segundos
     return request(app.getHttpServer())
       .post('/energy/sync')
       .set('Authorization', `Bearer ${staticToken}`)
       .send({ start: '2024-01-01T00', end: '2024-01-01T01' })
+      .timeout(30000)
       .expect((res) => {
-        // Pode ser 201 (sucesso), 502 (erro EIA), ou 422 (erro de validação/params)
+        // Pode ser 201 (sucesso), 400/422 (erro de validação), 502 (erro EIA), 500 (erro interno)
         // O importante é que o Guard de autenticação passou (não 401)
         if (res.status === 401) {
           throw new Error('Autenticação falhou - token não reconhecido');
         }
-        // Qualquer outro status (201, 422, 502, etc) indica que passou no Guard
+        // Qualquer outro status indica que passou no Guard
+        console.log(`Sync endpoint retornou status: ${res.status}`);
       });
-  });
+  }, 35000);
 
   afterAll(async () => {
     await app.close();

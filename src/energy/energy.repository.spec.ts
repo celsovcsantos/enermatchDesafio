@@ -104,6 +104,49 @@ describe('EnergyRepository', () => {
       expect(mockQueryBuilder.insert).not.toHaveBeenCalled();
       expect(mockInsertBuilder.execute).not.toHaveBeenCalled();
     });
+
+    it('deve processar registros em chunks de 1000 quando exceder limite', async () => {
+      const CHUNK_SIZE = 1000;
+      const totalRecords = 2500;
+      const records = Array.from({ length: totalRecords }, (_, i) => ({
+        period: `2024-01-${String((i % 31) + 1).padStart(2, '0')}`,
+        respondent: `RTO${i}`,
+        respondentName: `RTO Name ${i}`,
+        type: 'D',
+        typeDescription: 'Demand',
+        value: i,
+        unit: 'megawatthours',
+      })) as Partial<EnergyRecord>[];
+
+      await repository.upsertRecords(records);
+
+      // Deve chamar execute 3 vezes (1000 + 1000 + 500)
+      expect(mockInsertBuilder.execute).toHaveBeenCalledTimes(3);
+
+      // Verifica que cada chunk foi processado com os valores corretos
+      expect(mockInsertBuilder.values).toHaveBeenNthCalledWith(1, records.slice(0, CHUNK_SIZE));
+      expect(mockInsertBuilder.values).toHaveBeenNthCalledWith(2, records.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+      expect(mockInsertBuilder.values).toHaveBeenNthCalledWith(3, records.slice(CHUNK_SIZE * 2));
+    });
+
+    it('deve processar exatamente 1000 registros em uma única chamada', async () => {
+      const CHUNK_SIZE = 1000;
+      const records = Array.from({ length: CHUNK_SIZE }, (_, i) => ({
+        period: `2024-01-${String((i % 31) + 1).padStart(2, '0')}`,
+        respondent: `RTO${i}`,
+        respondentName: `RTO Name ${i}`,
+        type: 'D',
+        typeDescription: 'Demand',
+        value: i,
+        unit: 'megawatthours',
+      })) as Partial<EnergyRecord>[];
+
+      await repository.upsertRecords(records);
+
+      // Deve chamar execute apenas 1 vez
+      expect(mockInsertBuilder.execute).toHaveBeenCalledTimes(1);
+      expect(mockInsertBuilder.values).toHaveBeenCalledWith(records);
+    });
   });
 
   describe('applyFilters', () => {

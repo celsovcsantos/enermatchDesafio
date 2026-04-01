@@ -10,10 +10,18 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
 
-  // Drop database and run migrations on startup
-  const dataSource = app.get(DataSource);
-  await dataSource.dropDatabase();
-  await dataSource.runMigrations();
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  // Apenas em desenvolvimento: limpa o banco e executa migrations
+  if (isDevelopment) {
+    const dataSource = app.get(DataSource);
+    await dataSource.dropDatabase();
+    await dataSource.runMigrations();
+  } else {
+    // Em produção: apenas executa migrations pendentes
+    const dataSource = app.get(DataSource);
+    await dataSource.runMigrations();
+  }
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(

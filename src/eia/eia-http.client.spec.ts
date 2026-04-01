@@ -12,18 +12,18 @@ describe('EiaHttpClient', () => {
 
   const mockResponse: EiaResponse = {
     response: {
-      total: 1,
-      count: 1,
-      offset: 0,
+      total: '1',
+      dateFormat: 'YYYY-MM-DD"T"HH24',
+      frequency: 'hourly',
       data: [
         {
           period: '2024-01-01T00',
           respondent: 'PJM',
-          respondentName: 'PJM Interconnection',
+          'respondent-name': 'PJM Interconnection',
           type: 'D',
-          typeDescription: 'Demand',
-          value: 1000,
-          unit: 'megawatthours',
+          'type-name': 'Demand',
+          value: '1000',
+          'value-units': 'megawatthours',
         },
       ],
     },
