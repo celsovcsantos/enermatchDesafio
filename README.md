@@ -6,6 +6,7 @@ API robusta para integração, persistência e análise de dados de consumo de e
 
 - [Visão Geral](#-visão-geral)
 - [Tecnologias](#-tecnologias)
+- [Decisões Técnicas](#-decisões-técnicas)
 - [Pré-requisitos](#-pré-requisitos)
 - [Configuração do Ambiente](#-configuração-do-ambiente)
 - [Execução com Docker](#-execução-com-docker)
@@ -43,6 +44,62 @@ A Enerdata API coleta automaticamente dados horários de consumo de eletricidade
 | PostgreSQL | 16 | Banco de dados |
 | TypeORM | 0.3.x | ORM |
 | Docker | - | Containerização |
+
+---
+
+## 🏗 Decisões Técnicas
+
+### Arquitetura Modular
+
+A API segue a arquitetura modular do NestJS, separando responsabilidades em módulos coesos:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `EiaModule` | Comunicação HTTP com API externa da EIA |
+| `EnergyModule` | Persistência e lógica de negócio de registros de energia |
+| `SyncModule` | Agendamento (Cron) e controle de sincronização |
+| `ReportsModule` | Agregação e consulta de dados para relatórios |
+
+### Estratégia de Upsert
+
+O [`EnergyRepository.upsertRecords()`](src/energy/energy.repository.ts:31) utiliza `ON CONFLICT DO UPDATE` do PostgreSQL para evitar duplicatas, garantindo idempotência — a mesma operação pode ser executada múltiplas vezes sem alterar o resultado.
+
+### Índices Compostos
+
+A [migration inicial](src/database/migrations/1743471000000-CreateEnergyRecordsTable.ts) define:
+- **Índice composto unique** em `(period, subregion)` — garante integridade e acelera consultas por período + região.
+- **Índices em `period`** e `subregion` individualmente — otimizam filtros usados nos endpoints de relatório.
+
+### Resiliência na Integração EIA
+
+O [`EiaHttpClient`](src/eia/eia-http.client.ts) implementa:
+- **Retry automático** via Axios interceptor com backoff exponencial.
+- **Timeout configurável** (`EIA_TIMEOUT_MS`) para evitar requisições pendentes.
+- **Validação de resposta** que rejeita payloads malformados.
+
+### Autenticação Estática (JWT)
+
+O [`StaticJwtGuard`](src/common/guards/static-jwt.guard.ts) compara o token do header `Authorization: Bearer` diretamente com `STATIC_JWT_SECRET`. Essa escolha é adequada para:
+- Projetos de escopo fechado (sem múltiplos usuários).
+- Ambientes internos onde um token compartilhado é suficiente.
+- Evita a complexidade de OAuth2 / JWT dinâmico com refresh tokens.
+
+### Migrations TypeORM
+
+O schema do banco é versionado via migrations, permitindo:
+- Reprodução do banco em qualquer ambiente.
+- Rollback controlado de mudanças.
+- Histórico audível de evolução do schema.
+
+A aplicação executa migrations automaticamente na inicialização (via ` synchronize: false` + script de bootstrap).
+
+### Rate Limiting
+
+O `@nestjs/throttler` protege contra abuso com limite configurável (padrão: 30 req/60s por IP), adequado para ambientes compartilhados.
+
+### Logging Estruturado
+
+O `nestjs-pino` emite logs em formato JSON, facilitando integração com ferramentas de observabilidade (Datadog, ELK, CloudWatch).
 
 ---
 
@@ -156,6 +213,8 @@ npm install
 ```bash
 docker compose up -d postgres
 ```
+
+> ⚠️ O PostgreSQL será exposto na porta **5433** do host. O arquivo `.env` já está configurado com `DB_PORT=5433` para esse cenário.
 
 ### 3. Execute as migrations
 
@@ -353,7 +412,7 @@ npm run test:e2e
 | `NODE_ENV` | Não | `development` | Ambiente de execução |
 | `PORT` | Não | `3000` | Porta da aplicação |
 | `DB_HOST` | Sim | `localhost` | Host do PostgreSQL |
-| `DB_PORT` | Não | `5432` | Porta do PostgreSQL |
+| `DB_PORT` | Não | `5433` | Porta do PostgreSQL (5433 quando usando Docker Compose localmente) |
 | `DB_USERNAME` | Sim | `postgres` | Usuário do banco |
 | `DB_PASSWORD` | Sim | `postgres` | Senha do banco |
 | `DB_DATABASE` | Sim | `enerdata` | Nome do banco |
@@ -363,9 +422,11 @@ npm run test:e2e
 | `STATIC_JWT_SECRET` | **Sim** | — | Token de autenticação |
 | `THROTTLE_TTL` | Não | `60` | Janela de rate limit (segundos) |
 | `THROTTLE_LIMIT` | Não | `30` | Máximo de requisições por janela |
-| `SYNC_CRON_EXPRESSION` | Não | `0 * * * *` | Expressão Cron para sincronização |
+| `SYNC_CRON_EXPRESSION` | Não | `0 */10 * * * *` | Expressão Cron para sincronização (a cada 10 min) |
 
-> 💡 Por padrão, o Cron executa a cada hora (`0 * * * *`). Ajuste `SYNC_CRON_EXPRESSION` conforme necessário.
+> ⚠️ **Nota sobre `DB_PORT`:** Quando você roda a aplicação localmente (`npm run start:dev`) com o PostgreSQL via `docker compose up -d postgres`, o banco é exposto na porta **5433** do host (conforme `docker-compose.yml`). O `.env` já vem configurado com `DB_PORT=5433` para esse cenário. Se usar um PostgreSQL nativo na porta-padrão 5432, altere para `DB_PORT=5432`.
+> 
+> 💡 O Cron padrão executa a cada 10 minutos (`0 */10 * * * *`). Ajuste `SYNC_CRON_EXPRESSION` conforme necessário.
 
 ---
 
@@ -422,13 +483,178 @@ Exemplos de códigos de região da EIA:
 
 ## 🤝 Testando com Postman
 
-Uma coleção do Postman está disponível em [`docs/postman_collection.json`](docs/postman_collection.json).
+A coleção completa pode ser importada diretamente no Postman.
 
-**Para importar:**
+**Opção 1 — Importar do arquivo:**
 1. Abra o Postman
 2. Clique em **Import**
 3. Selecione o arquivo `docs/postman_collection.json`
 4. Configure a variável de coleção `STATIC_TOKEN` com o valor do seu `STATIC_JWT_SECRET`
+
+**Opção 2 — Cole o JSON abaixo diretamente:**
+
+```json
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+		"name": "Enerdata API",
+		"description": "Coleção para testar a API de monitoramento de energia",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Sincronização",
+			"item": [
+				{
+					"name": "Disparar Sincronização Manual",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{STATIC_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"start\": \"2024-01-01T00\",\n    \"end\": \"2024-01-01T23\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/energy/sync",
+							"host": ["{{BASE_URL}}"],
+							"path": ["energy", "sync"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Relatórios",
+			"item": [
+				{
+					"name": "Consumo Total",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{STATIC_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/reports/total?start=2024-01-01T00&end=2024-01-01T23",
+							"host": ["{{BASE_URL}}"],
+							"path": ["reports", "total"],
+							"query": [
+								{ "key": "start", "value": "2024-01-01T00" },
+								{ "key": "end", "value": "2024-01-01T23" }
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Média de Consumo",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{STATIC_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/reports/average?region=PJM",
+							"host": ["{{BASE_URL}}"],
+							"path": ["reports", "average"],
+							"query": [
+								{ "key": "region", "value": "PJM" }
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pico de Consumo",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{STATIC_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/reports/peak",
+							"host": ["{{BASE_URL}}"],
+							"path": ["reports", "peak"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Consumo por Região",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{STATIC_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/reports/by-region",
+							"host": ["{{BASE_URL}}"],
+							"path": ["reports", "by-region"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": { "type": "text/javascript", "exec": [""] }
+		},
+		{
+			"listen": "test",
+			"script": { "type": "text/javascript", "exec": [""] }
+		}
+	],
+	"variable": [
+		{
+			"key": "BASE_URL",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "STATIC_TOKEN",
+			"value": "seu_token_estatico_super_secreto",
+			"type": "string"
+		}
+	]
+}
+```
+
+**Variáveis da coleção:**
+
+| Variável | Valor padrão | Descrição |
+|---|---|---|
+| `BASE_URL` | `http://localhost:3000` | URL base da API |
+| `STATIC_TOKEN` | `seu_token_estatico_super_secreto` | Token de autenticação (substitua pelo valor do seu `.env`) |
 
 ---
 
