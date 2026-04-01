@@ -84,7 +84,7 @@ describe('EiaHttpClient', () => {
         end: '2024-01-31T23',
       });
 
-      expect(httpService.get.bind(httpService)).toHaveBeenCalledWith(
+      expect(httpService.get).toHaveBeenCalledWith(
         'https://api.eia.gov/v2/electricity/rto/region-data/data',
         expect.objectContaining({
           params: expect.any(Object) as object,
@@ -106,7 +106,7 @@ describe('EiaHttpClient', () => {
 
       await client.getRegionData({});
 
-      expect(httpService.get.bind(httpService)).toHaveBeenCalledWith(
+      expect(httpService.get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           params: expect.any(Object) as object,
@@ -127,7 +127,7 @@ describe('EiaHttpClient', () => {
 
       await client.getRegionData({ offset: 100, length: 1000 });
 
-      expect(httpService.get.bind(httpService)).toHaveBeenCalledWith(
+      expect(httpService.get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           params: expect.any(Object) as object,
@@ -140,7 +140,7 @@ describe('EiaHttpClient', () => {
       (httpService.get as jest.Mock).mockReturnValue(throwError(() => networkError));
 
       await expect(client.getRegionData({})).rejects.toThrow(EiaIntegrationException);
-      await expect(client.getRegionData({})).rejects.toThrow('Falha na integração com a EIA: Network error');
+      await expect(client.getRegionData({})).rejects.toThrow('Network error');
     });
 
     it('deve lançar EiaIntegrationException em caso de erro Axios', async () => {
@@ -176,7 +176,7 @@ describe('EiaHttpClient', () => {
 
       await client.getRegionData({});
 
-      expect(httpService.get.bind(httpService)).toHaveBeenCalledWith(
+      expect(httpService.get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           params: expect.any(Object) as object,

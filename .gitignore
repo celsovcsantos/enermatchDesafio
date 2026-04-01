@@ -3,5 +3,5 @@
 .env
 coverage
 *.log
-/.kilocode
+#/.kilocode
 /docs

@@ -56,7 +56,7 @@ describe('SyncController', () => {
 
       const result = await controller.sync(syncDto);
 
-      expect(energyService.syncData.bind(energyService)).toHaveBeenCalledWith(syncDto);
+      expect(energyService.syncData).toHaveBeenCalledWith(syncDto);
       expect(result).toEqual(mockResult);
     });
 
@@ -68,7 +68,7 @@ describe('SyncController', () => {
 
       const result = await controller.sync(syncDto);
 
-      expect(energyService.syncData.bind(energyService)).toHaveBeenCalledWith({});
+      expect(energyService.syncData).toHaveBeenCalledWith({});
       expect(result).toEqual(mockResult);
     });
 

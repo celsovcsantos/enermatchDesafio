@@ -38,7 +38,7 @@ describe('ReportsService', () => {
       const filters = { start: '2024-01-01', end: '2024-01-31', region: 'PJM' };
       const result = await service.getTotalConsumption(filters);
 
-      expect(energyRepository.getTotalConsumption.bind(energyRepository)).toHaveBeenCalledWith(filters);
+      expect(energyRepository.getTotalConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
 
@@ -48,7 +48,7 @@ describe('ReportsService', () => {
 
       const result = await service.getTotalConsumption({});
 
-      expect(energyRepository.getTotalConsumption.bind(energyRepository)).toHaveBeenCalledWith({});
+      expect(energyRepository.getTotalConsumption).toHaveBeenCalledWith({});
       expect(result).toEqual(mockResult);
     });
 
@@ -67,7 +67,7 @@ describe('ReportsService', () => {
       const filters = { start: '2024-01-01', end: '2024-01-31' };
       const result = await service.getAverageConsumption(filters);
 
-      expect(energyRepository.getAverageConsumption.bind(energyRepository)).toHaveBeenCalledWith(filters);
+      expect(energyRepository.getAverageConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
 
@@ -93,7 +93,7 @@ describe('ReportsService', () => {
       const filters = { start: '2024-01-01', end: '2024-01-31' };
       const result = await service.getPeakConsumption(filters);
 
-      expect(energyRepository.getPeakConsumption.bind(energyRepository)).toHaveBeenCalledWith(filters);
+      expect(energyRepository.getPeakConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
   });
@@ -118,7 +118,7 @@ describe('ReportsService', () => {
 
       const result = await service.getConsumptionByRegion({});
 
-      expect(energyRepository.getConsumptionByRegion.bind(energyRepository)).toHaveBeenCalledWith({});
+      expect(energyRepository.getConsumptionByRegion).toHaveBeenCalledWith({});
       expect(result).toEqual(mockResult);
     });
 
@@ -144,7 +144,7 @@ describe('ReportsService', () => {
       const filters = { region: 'PJM' };
       await service.getConsumptionByRegion(filters);
 
-      expect(energyRepository.getConsumptionByRegion.bind(energyRepository)).toHaveBeenCalledWith(filters);
+      expect(energyRepository.getConsumptionByRegion).toHaveBeenCalledWith(filters);
     });
   });
 });

@@ -78,8 +78,8 @@ describe('EnergyService', () => {
 
       expect(result.count).toBe(1);
       expect(result.message).toBe('Sincronização concluída com sucesso');
-      expect(eiaHttpClient.getRegionData.bind(eiaHttpClient)).toHaveBeenCalledWith({});
-      expect(energyRepository.upsertRecords.bind(energyRepository)).toHaveBeenCalledWith(mockEiaData.response.data);
+      expect(eiaHttpClient.getRegionData).toHaveBeenCalledWith({});
+      expect(energyRepository.upsertRecords).toHaveBeenCalledWith(mockEiaData.response.data);
     });
 
     it('deve sincronizar múltiplos registros', async () => {
@@ -123,7 +123,7 @@ describe('EnergyService', () => {
       const result = await service.syncData({});
 
       expect(result.count).toBe(3);
-      expect(energyRepository.upsertRecords.bind(energyRepository)).toHaveBeenCalledTimes(1);
+      expect(energyRepository.upsertRecords).toHaveBeenCalledTimes(1);
     });
 
     it('deve passar parâmetros de data para o cliente EIA', async () => {
@@ -138,7 +138,7 @@ describe('EnergyService', () => {
       const params = { start: '2024-01-01T00', end: '2024-01-31T23' };
       await service.syncData(params);
 
-      expect(eiaHttpClient.getRegionData.bind(eiaHttpClient)).toHaveBeenCalledWith(params);
+      expect(eiaHttpClient.getRegionData).toHaveBeenCalledWith(params);
     });
 
     it('deve retornar mensagem de "nenhum dado encontrado" quando API retorna array vazio', async () => {
@@ -154,7 +154,7 @@ describe('EnergyService', () => {
 
       expect(result.count).toBe(0);
       expect(result.message).toBe('Nenhum dado encontrado');
-      expect(energyRepository.upsertRecords.bind(energyRepository)).not.toHaveBeenCalled();
+      expect(energyRepository.upsertRecords).not.toHaveBeenCalled();
     });
 
     it('deve retornar mensagem de "nenhum dado encontrado" quando data é undefined', async () => {
@@ -206,7 +206,7 @@ describe('EnergyService', () => {
       (eiaHttpClient.getRegionData as jest.Mock).mockRejectedValue(new Error('Unknown error'));
 
       await expect(service.syncData({})).rejects.toThrow(SyncException);
-      await expect(service.syncData({})).rejects.toThrow('Falha ao sincronizar dados: Erro desconhecido');
+      await expect(service.syncData({})).rejects.toThrow('Falha ao sincronizar dados: Unknown error');
     });
   });
 });

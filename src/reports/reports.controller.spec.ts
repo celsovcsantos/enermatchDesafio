@@ -56,7 +56,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getTotal(filters);
 
-      expect(reportsService.getTotalConsumption.bind(reportsService)).toHaveBeenCalledWith(filters);
+      expect(reportsService.getTotalConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
 
@@ -68,7 +68,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getTotal(filters);
 
-      expect(reportsService.getTotalConsumption.bind(reportsService)).toHaveBeenCalledWith({});
+      expect(reportsService.getTotalConsumption).toHaveBeenCalledWith({});
       expect(result).toEqual(mockResult);
     });
   });
@@ -85,7 +85,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getAverage(filters);
 
-      expect(reportsService.getAverageConsumption.bind(reportsService)).toHaveBeenCalledWith(filters);
+      expect(reportsService.getAverageConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
 
@@ -114,7 +114,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getPeak(filters);
 
-      expect(reportsService.getPeakConsumption.bind(reportsService)).toHaveBeenCalledWith(filters);
+      expect(reportsService.getPeakConsumption).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
   });
@@ -144,7 +144,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getByRegion(filters);
 
-      expect(reportsService.getConsumptionByRegion.bind(reportsService)).toHaveBeenCalledWith(filters);
+      expect(reportsService.getConsumptionByRegion).toHaveBeenCalledWith(filters);
       expect(result).toEqual(mockResult);
     });
 
@@ -173,7 +173,7 @@ describe('ReportsController', () => {
 
       await controller.getByRegion(filters);
 
-      expect(reportsService.getConsumptionByRegion.bind(reportsService)).toHaveBeenCalledWith(filters);
+      expect(reportsService.getConsumptionByRegion).toHaveBeenCalledWith(filters);
     });
   });
 });
